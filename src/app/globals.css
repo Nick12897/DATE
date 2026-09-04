@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #FFFDF9;
+  --foreground: #3D2B2E;
+}
+
+body {
+  color: var(--foreground);
+  background: linear-gradient(180deg, #FFFDF9 0%, #FFF5F4 50%, #FAF2ED 100%);
+  min-height: 100vh;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Cho phép chọn văn bản trong ô input */
+input, textarea {
+  user-select: text;
+}
+
+/* Tùy chỉnh màu bôi đen văn bản phong cách lãng mạn */
+::selection {
+  background-color: #FCD6D4;
+  color: #A83125;
+}
+
+/* Thanh cuộn mềm mại */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E7D6D1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C2968C;
+}
+
+/* Hiệu ứng trái tim bay lơ lửng */
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) scale(0.8) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-240px) scale(1.2) rotate(25deg);
+    opacity: 0;
+  }
+}
+
+.floating-heart {
+  position: absolute;
+  pointer-events: none;
+  animation: floatUp 3.5s ease-out infinite;
+}
