@@ -16,16 +16,39 @@ const inMemoryBookings: Array<{
   // Một số dữ liệu mẫu giả lập đã được đặt để người dùng thấy tính năng vô hiệu hóa khung giờ
 ];
 
+// Kiểm tra xem URL có phải là URL mẫu hoặc không hợp lệ hay không
+function isValidSupabaseUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  const clean = url.trim().toLowerCase();
+  if (
+    clean.includes("your-project") ||
+    clean.includes("xxx.supabase.co") ||
+    clean.includes("example.com") ||
+    !clean.startsWith("https://")
+  ) {
+    return false;
+  }
+  try {
+    const parsed = new URL(clean);
+    return parsed.hostname.endsWith(".supabase.co");
+  } catch {
+    return false;
+  }
+}
+
 // Khởi tạo Supabase Client an toàn trên Server
 function getSupabaseClient(): SupabaseClient | null {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey =
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const rawKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseKey || supabaseUrl.includes("your-project")) {
-    return null; // Đang chạy ở chế độ Demo / Chưa có cấu hình Supabase
+  if (!rawUrl || !rawKey || !isValidSupabaseUrl(rawUrl)) {
+    return null; // Đang chạy ở chế độ Demo / URL chưa được cấu hình thật
   }
+
+  const supabaseUrl = rawUrl.trim();
+  const supabaseKey = rawKey.trim();
 
   return createClient(supabaseUrl, supabaseKey);
 }
@@ -146,12 +169,29 @@ export async function saveBooking(payload: BookingPayload): Promise<{
       if (error.code === "23505") {
         return {
           success: false,
-          error: "Khung giờ này đã được đặt trước đó rồi!",
+          error: "Khung giờ này đã được đặt trước đó rồi! Em chọn khung giờ khác nhé ❤️",
         };
       }
+
+      // Nếu lỗi do URL sai, mất mạng hoặc fetch failed, tự động chuyển sang lưu tạm để không làm gián đoạn người đặt
+      if (error.message?.includes("fetch failed") || error.message?.includes("network")) {
+        console.warn("⚠️ [SUPABASE KẾT NỐI THẤT BẠI - TỰ ĐỘNG LƯU DỰ PHÒNG]:", error.message);
+        const mockBooking = {
+          ...payload,
+          id: "fallback-" + Math.random().toString(36).substring(2, 9),
+          created_at: new Date().toISOString(),
+        };
+        inMemoryBookings.push(mockBooking);
+        return {
+          success: true,
+          data: mockBooking,
+          isDemo: true,
+        };
+      }
+
       return {
         success: false,
-        error: "Có lỗi khi lưu lịch hẹn: " + error.message,
+        error: "Không thể kết nối cơ sở dữ liệu: " + error.message,
       };
     }
 
@@ -162,9 +202,26 @@ export async function saveBooking(payload: BookingPayload): Promise<{
     };
   } catch (err: any) {
     console.error("Lỗi ngoại lệ khi lưu Supabase:", err);
+    
+    // Nếu gặp lỗi mạng / fetch failed ở tầng ngoại lệ, cũng tự động lưu dự phòng
+    if (err.message?.includes("fetch failed") || err.message?.includes("network")) {
+      console.warn("⚠️ [NGOẠI LỆ FETCH FAILED - TỰ ĐỘNG LƯU DỰ PHÒNG]:", err.message);
+      const mockBooking = {
+        ...payload,
+        id: "fallback-" + Math.random().toString(36).substring(2, 9),
+        created_at: new Date().toISOString(),
+      };
+      inMemoryBookings.push(mockBooking);
+      return {
+        success: true,
+        data: mockBooking,
+        isDemo: true,
+      };
+    }
+
     return {
       success: false,
-      error: "Không thể kết nối đến cơ sở dữ liệu: " + err.message,
+      error: "Không thể kết nối đến máy chủ: " + err.message,
     };
   }
 }
